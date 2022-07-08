@@ -23,7 +23,7 @@ package
    Package name, glob or regular expression to match (multiple) packages. If not specified `__object_id` is used.
 
 priority
-   The priority value to assign to matching packages. Deafults to 500. (To match the default target distro's priority)
+   The priority value to assign to matching packages. Defaults to 500. (To match the default target distro's priority)
 
 state
    Will be passed to underlying `__file` type; see there for valid values and defaults.
