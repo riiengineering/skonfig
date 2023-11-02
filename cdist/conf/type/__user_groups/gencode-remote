@@ -26,13 +26,15 @@ os=$(cat "$__global/explorer/os")
 mkdir "$__object/files"
 # file has to be sorted for comparison with `comm`
 sort "$__object/parameter/group" > "$__object/files/group.sorted"
+# Use local sort for remote groups
+sort "$__object/explorer/group" > "$__object/files/group-remote.sorted"
 
 case "$state_should" in
    present)
-      changed_groups="$(comm -13 "$__object/explorer/group" "$__object/files/group.sorted")"
+      changed_groups="$(comm -13 "$__object/files/group-remote.sorted" "$__object/files/group.sorted")"
    ;;
    absent)
-      changed_groups="$(comm -12 "$__object/explorer/group" "$__object/files/group.sorted")"
+      changed_groups="$(comm -12 "$__object/files/group-remote.sorted" "$__object/files/group.sorted")"
    ;;
 esac
 
