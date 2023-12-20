@@ -19,5 +19,5 @@
 # along with cdist. If not, see <http://www.gnu.org/licenses/>.
 #
 
-__package luarocks --state installed
-__package make --state installed
+__package luarocks --state present
+__package make --state present
