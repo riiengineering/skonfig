@@ -534,7 +534,8 @@ eof
     ;;
 
     version)
-        printf "VERSION = \"%s\"\n" "$(git describe)" > cdist/version.py
+        target_version="$(git describe | sed 's/-/.dev/; s/-/+/g')"
+        printf "VERSION = \"%s\"\n" "${target_version}" > cdist/version.py
     ;;
 
     target-version)
