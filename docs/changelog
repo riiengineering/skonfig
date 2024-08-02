@@ -1,6 +1,9 @@
 Changelog
 ---------
 
+next:
+	* Type __timezone: Add support for OpenWRT (Nico Schottelius)
+
 7.0.1:
 	* Core: Remove double definition of scan parser (Nico Schottelius)
 	* Type __apt_mark: Narrow down grep for hold packages (marcoduif)
