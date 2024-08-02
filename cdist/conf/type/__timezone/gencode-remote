@@ -34,3 +34,12 @@ case "$os" in
       echo "echo \"$timezone_should\" > /etc/timezone"
    ;;
 esac
+
+case "$os" in
+    openwrt)
+        cat <<EOF
+			uci set system.@system[0].timezone="$timezone_should"
+			uci commit
+EOF
+   ;;
+esac
