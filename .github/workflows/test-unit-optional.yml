@@ -37,10 +37,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Install bubblewrap
+        run: |
+          sudo apt-get -y install bubblewrap
       - name: Information
         run: |
           python3 -V
           bin/skonfig -V
       - name: Run unit tests
+        env:
+          SANDBOX: bubblewrap
         run: |
           make unittest
