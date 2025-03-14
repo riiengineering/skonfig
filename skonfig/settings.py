@@ -19,11 +19,11 @@
 #
 
 import os
+import logging
 
 import cdist.autil
-import cdist.log
 
-_logger = cdist.log.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 
 def get_cache_dir():

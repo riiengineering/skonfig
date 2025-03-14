@@ -20,11 +20,11 @@
 #
 #
 
+import logging
 import os
 
 import cdist
 import cdist.core
-import cdist.log
 
 
 # FileNotFoundError is added in 3.3.
@@ -53,7 +53,7 @@ class CdistType:
 
     """
 
-    log = cdist.log.getLogger("cdist-type")
+    log = logging.getLogger("cdist-type")
 
     def __init__(self, base_path, name):
         self.base_path = base_path

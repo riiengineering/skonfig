@@ -21,17 +21,17 @@
 # along with cdist. If not, see <http://www.gnu.org/licenses/>.
 #
 
-import os
-import sys
-import time
-import tempfile
+import logging
 import multiprocessing
+import os
 import shutil
+import sys
+import tempfile
+import time
 
 import cdist
 import cdist.exec.local
 import cdist.exec.remote
-import cdist.log
 
 from cdist.exec.util import get_std_fd
 from cdist.mputil import (mp_pool_run, mp_sig_handler)
@@ -186,7 +186,7 @@ class Config:
                 dry_run=False, jobs=1,
                 remove_remote_files_dirs=False):
         """Configure ONE system."""
-        log = cdist.log.getLogger(host)
+        log = logging.getLogger(host)
 
         try:
             (remote_exec, cleanup_cmd) = cls._resolve_remote_cmds(settings)
@@ -220,9 +220,8 @@ class Config:
                     remove_remote_files_dirs=remove_remote_files_dirs)
             c.run()
             cls._remove_paths()
-
         except cdist.Error as e:
-            log.error(e)
+            log.critical(e)
             raise
 
     @staticmethod
@@ -440,7 +439,7 @@ class Config:
         return objects_changed
 
     def _open_logger(self):
-        self.log = cdist.log.getLogger(self.local.target_host[0])
+        self.log = logging.getLogger(self.local.target_host[0])
 
     # logger is not pickable, so remove it when we pickle
     def __getstate__(self):

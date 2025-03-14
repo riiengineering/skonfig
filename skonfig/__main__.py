@@ -40,6 +40,9 @@ def run_emulator():
 
 
 def run():
+    import skonfig.logging
+    skonfig.logging.setup_logging()
+
     try:
         if os.path.basename(sys.argv[0]).startswith("__"):
             run_emulator()

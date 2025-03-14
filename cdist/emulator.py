@@ -22,6 +22,7 @@
 #
 
 import argparse
+import logging
 import os
 import re
 import sys
@@ -29,7 +30,6 @@ import sys
 import cdist
 import cdist.core
 import cdist.flock
-import cdist.log
 
 
 # FileNotFoundError is added in 3.3.
@@ -123,20 +123,20 @@ class Emulator:
                 loglevel = self.env['__cdist_log_level']
                 level = int(loglevel)
             except ValueError:
-                level = cdist.log.WARNING
+                level = logging.WARNING
         else:
-            level = cdist.log.WARNING
-        self.log = cdist.log.getLogger(self.target_host[0])
+            level = logging.WARNING
+        self.log = logging.getLogger(self.target_host[0])
         try:
-            cdist.log.root.setLevel(level)
+            logging.root.setLevel(level)
             self.log.setLevel(level)
         except (ValueError, TypeError):
             # if invalid __cdist_log_level value
-            cdist.log.root.setLevel(cdist.log.WARNING)
-            self.log.setLevel(cdist.log.WARNING)
+            logging.root.setLevel(logging.WARNING)
+            self.log.setLevel(logging.WARNING)
 
         colored_log = self.env.get('__cdist_colored_log', 'false')
-        cdist.log.CdistFormatter.USE_COLORS = colored_log == 'true'
+        skonfig.logging.ColourFormatter.use_colors = (colored_log == "true")
 
     def commandline(self):
         """Parse command line"""

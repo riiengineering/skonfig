@@ -27,10 +27,10 @@ import multiprocessing
 import os
 
 import cdist
-import cdist.log
 
 from cdist.mputil import mp_pool_run
 from cdist.util import shquot
+from skonfig.logging import (log_level_env_var_val, log_level_name_env_var_val)
 
 """
 common:
@@ -81,9 +81,8 @@ class Explorer:
             '__target_fqdn': self.target_host[2],
             '__explorer': self.remote.global_explorer_path,
             '__target_host_tags': '',  # backwards compatibility with cdist
-            '__cdist_log_level': cdist.log.log_level_env_var_val(self.log),
-            '__cdist_log_level_name': cdist.log.log_level_name_env_var_val(
-                self.log),
+            '__cdist_log_level': log_level_env_var_val(self.log),
+            '__cdist_log_level_name': log_level_name_env_var_val(self.log),
         }
 
         if dry_run:
@@ -93,7 +92,7 @@ class Explorer:
         self.jobs = jobs
 
     def _open_logger(self):
-        self.log = cdist.log.getLogger(self.target_host[0])
+        self.log = logging.getLogger(self.target_host[0])
 
     # global
 

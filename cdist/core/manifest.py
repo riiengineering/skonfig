@@ -20,13 +20,14 @@
 #
 #
 
+import logging
 import os
 
 import cdist
-import cdist.log
+import skonfig.logging
 
 from cdist.exec.util import get_std_fd
-
+from skonfig.logging import (log_level_env_var_val, log_level_name_env_var_val)
 
 # FileNotFoundError is added in 3.3.
 if not hasattr(__builtins__, 'FileNotFoundError'):
@@ -120,18 +121,17 @@ class Manifest:
             '__target_fqdn': self.target_host[2],
             '__files': self.local.files_path,
             '__target_host_tags': '',  # backwards compatibility with cdist
-            '__cdist_log_level': cdist.log.log_level_env_var_val(self.log),
-            '__cdist_log_level_name': cdist.log.log_level_name_env_var_val(
-                self.log),
+            '__cdist_log_level': log_level_env_var_val(self.log),
+            '__cdist_log_level_name': log_level_name_env_var_val(self.log),
             '__cdist_colored_log': str(
-                cdist.log.CdistFormatter.USE_COLORS).lower(),
+                skonfig.logging.ColourFormatter.use_colours).lower(),
         }
 
         if dry_run:
-            self.env['__cdist_dry_run'] = '1'
+            self.env['__cdist_dry_run'] = 'true'
 
     def _open_logger(self):
-        self.log = cdist.log.getLogger(self.target_host[0])
+        self.log = logging.getLogger(self.target_host[0])
 
     # logger is not pickable, so remove it when we pickle
     def __getstate__(self):

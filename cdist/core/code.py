@@ -21,12 +21,11 @@
 #
 #
 
+import logging
 import os
 
-import cdist.log
-
 from cdist.exec.util import get_std_fd
-
+from skonfig.logging import (log_level_env_var_val, log_level_name_env_var_val)
 
 """
 common:
@@ -110,8 +109,8 @@ class Code:
             '__global': self.local.base_path,
             '__files': self.local.files_path,
             '__target_host_tags': '',  # backwards compatibility with cdist
-            '__cdist_log_level': cdist.log.log_level_env_var_val(local.log),
-            '__cdist_log_level_name': cdist.log.log_level_name_env_var_val(
+            '__cdist_log_level': log_level_env_var_val(local.log),
+            '__cdist_log_level_name': log_level_name_env_var_val(
                 local.log),
         }
 

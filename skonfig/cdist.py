@@ -5,10 +5,10 @@ import shutil
 import sys
 import tempfile
 
-import cdist.log
+import skonfig.logging
 import skonfig.settings
 
-_logger = cdist.log.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 
 def _initialise_global_settings():
@@ -49,7 +49,7 @@ def run(skonfig_arguments):
     logging.basicConfig(level=loglevel)
 
     if settings.colored_output:
-        cdist.log.CdistFormatter.USE_COLORS = True
+        skonfig.logging.ColourFormatter.use_colors = True
 
     target_host = skonfig_arguments.host
 
