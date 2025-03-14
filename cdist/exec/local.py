@@ -32,8 +32,8 @@ import time
 
 import cdist
 import cdist.core
-import cdist.log
 import cdist.message
+import skonfig.logging
 
 import cdist.exec.util as util
 
@@ -70,7 +70,7 @@ class Local:
         self._init_conf_dirs()
 
     def _init_log(self):
-        self.log = cdist.log.getLogger(self.target_host[0])
+        self.log = skonfig.logging.get_logger(self.target_host[0])
 
     # logger is not pickable, so remove it when we pickle
     def __getstate__(self):

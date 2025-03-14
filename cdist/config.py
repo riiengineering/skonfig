@@ -21,17 +21,17 @@
 # along with cdist. If not, see <http://www.gnu.org/licenses/>.
 #
 
-import os
-import sys
-import time
-import tempfile
 import multiprocessing
+import os
 import shutil
+import sys
+import tempfile
+import time
 
 import cdist
 import cdist.exec.local
 import cdist.exec.remote
-import cdist.log
+import skonfig.logging
 
 from cdist.exec.util import get_std_fd
 from cdist.mputil import (mp_pool_run, mp_sig_handler)
@@ -175,25 +175,26 @@ class Config:
     @staticmethod
     def resolve_target_addresses(host):
         try:
-            return ipaddr.resolve_target_addresses(host)
+            (host, host_name, host_fqdn) = ipaddr.resolve_target_addresses(host)
+            return (host, host_name, host_fqdn)
         except:  # noqa
             e = sys.exc_info()[1]
-            raise cdist.Error(("Error resolving target addresses for host '{}'"
-                               ": {}").format(host, e))
+            raise cdist.Error(
+                ("Error resolving target addresses for '%s': %r") % (host, e))
 
     @classmethod
     def onehost(cls, host, host_base_path, override_init_manifest, settings,
                 dry_run=False, jobs=1,
                 remove_remote_files_dirs=False):
         """Configure ONE system."""
-        log = cdist.log.getLogger(host)
+        log = skonfig.logging.get_logger(host)
 
         try:
             (remote_exec, cleanup_cmd) = cls._resolve_remote_cmds(settings)
-            log.debug("remote_exec for host \"%s\": %s", host, remote_exec)
+            log.debug("remote_exec: %s", remote_exec)
 
             target_host = cls.resolve_target_addresses(host)
-            log.debug("target_host for host \"%s\": %s", host, target_host)
+            log.debug("derived addresses (host, name, fqdn): %s", target_host)
 
             local = cdist.exec.local.Local(
                 target_host=target_host,
@@ -220,9 +221,8 @@ class Config:
                     remove_remote_files_dirs=remove_remote_files_dirs)
             c.run()
             cls._remove_paths()
-
         except cdist.Error as e:
-            log.error(e)
+            log.critical(e)
             raise
 
     @staticmethod
@@ -440,7 +440,7 @@ class Config:
         return objects_changed
 
     def _open_logger(self):
-        self.log = cdist.log.getLogger(self.local.target_host[0])
+        self.log = skonfig.logging.get_logger(self.local.target_host[0])
 
     # logger is not pickable, so remove it when we pickle
     def __getstate__(self):

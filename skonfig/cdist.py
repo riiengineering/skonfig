@@ -1,14 +1,11 @@
 import atexit
-import logging
 import os
 import shutil
 import sys
 import tempfile
 
-import cdist.log
+import skonfig.logging
 import skonfig.settings
-
-_logger = cdist.log.getLogger(__name__)
 
 
 def _initialise_global_settings():
@@ -37,6 +34,9 @@ def _initialise_global_settings():
 
 
 def run(skonfig_arguments):
+    target_host = skonfig_arguments.host
+    _logger = skonfig.logging.get_logger(target_host)
+
     settings = _initialise_global_settings()
 
     # configure logging
@@ -46,12 +46,9 @@ def run(skonfig_arguments):
     else:
         loglevel = settings.verbosity
 
-    logging.basicConfig(level=loglevel)
+    skonfig.logging.set_log_level(loglevel)
+    skonfig.logging.set_colours(settings.colored_output)
 
-    if settings.colored_output:
-        cdist.log.CdistFormatter.USE_COLORS = True
-
-    target_host = skonfig_arguments.host
 
     jobs = skonfig_arguments.jobs or settings.jobs
 
@@ -82,8 +79,7 @@ def run(skonfig_arguments):
 
     host_base_path = cdist_config.create_temp_host_base_dir(
         settings.out_path)
-    _logger.debug("Created temporary working directory for host \"%s\": %s",
-                  target_host, host_base_path)
+    _logger.debug("Created temporary working directory: %s", host_base_path)
 
     cdist_config.onehost(
         target_host,
@@ -94,7 +90,7 @@ def run(skonfig_arguments):
         jobs=jobs,
         remove_remote_files_dirs=(skonfig_arguments.verbosity < 2))
 
-    _logger.debug("Cleaning up %s", host_base_path)
+    _logger.debug("Cleaning up: %s", host_base_path)
     shutil.rmtree(host_base_path)
 
 

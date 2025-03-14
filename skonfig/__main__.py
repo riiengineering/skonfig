@@ -34,12 +34,29 @@ def run_main():
 
 
 def run_emulator():
+    # setup logging based on envrionment variables inherited from skonfig(1)
+    import skonfig.logging
+    try:
+        skonfig.logging.set_log_level(
+            int(os.environ["__cdist_log_level"]))
+    except (KeyError, TypeError, ValueError) as e:
+        # if no or invalid __cdist_log_level value
+        skonfig.logging.set_log_level(skonfig.logging.INFO)
+
+    coloured_log = os.environ.get("__cdist_colored_log", "false").lower()
+    skonfig.logging.set_colours((coloured_log == "true"))
+    del coloured_log
+
+    # run emulator
     import cdist
     import skonfig.cdist
     skonfig.cdist.emulator()
 
 
 def run():
+    import skonfig.logging
+    skonfig.logging.setup_logging()
+
     try:
         if os.path.basename(sys.argv[0]).startswith("__"):
             run_emulator()

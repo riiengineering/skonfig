@@ -21,9 +21,9 @@
 import os
 
 import cdist.autil
-import cdist.log
+import skonfig.logging
 
-_logger = cdist.log.getLogger(__name__)
+_logger = skonfig.logging.get_logger(__name__)
 
 
 def get_cache_dir():
@@ -191,17 +191,10 @@ class loglevel_setting(any_setting):
         if isinstance(value, int) and not isinstance(value, bool):
             return value
         elif isinstance(value, str):
-            import logging
-            # < Python 3.4
-            levels_pre34 = getattr(logging, "_levelNames", {})
-            # >= Python 3.4
-            levels_available = getattr(logging, "_levelToName", levels_pre34)
-
-            for (level, level_name) in levels_available.items():
-                if value == level_name:
-                    return level
-
-            raise ValueError("invalid logging level: %s" % (value,))
+            level = skonfig.logging.level_name_to_int(value)
+            if level is None:
+                raise ValueError("invalid logging level: %s" % (value,))
+            return level
         else:
             raise ValueError("invalid value: %s" % (value,))
 

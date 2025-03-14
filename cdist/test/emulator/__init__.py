@@ -40,6 +40,7 @@ conf_dirs = [os.path.join(d, 'fixtures', 'conf') for d in my_dirs]
 
 
 class EmulatorTestCase(test.CdistTestCase):
+    default_loglevel = logging.INFO
 
     def setUp(self):
         self.temp_dir = self.mkdtemp()
@@ -108,31 +109,6 @@ class EmulatorTestCase(test.CdistTestCase):
         self.env['require'] = '__file_noop/etc/*'
         emulator.Emulator(argv, env=self.env)
         # if we get here all is fine
-
-    def test_loglevel(self):
-        argv = ['__cdist_test_type', 'test_loglevel']
-        self.env['require'] = '__file_noop/etc/*'
-        emu = emulator.Emulator(argv, env=self.env)
-        emu_loglevel = emu.log.getEffectiveLevel()
-        self.assertEqual(emu_loglevel, logging.WARNING)
-        self.env['__cdist_log_level'] = str(logging.DEBUG)
-        emu = emulator.Emulator(argv, env=self.env)
-        emu_loglevel = emu.log.getEffectiveLevel()
-        self.assertEqual(emu_loglevel, logging.DEBUG)
-        del self.env['__cdist_log_level']
-
-    def test_invalid_loglevel_value(self):
-        argv = ['__cdist_test_type', 'test_invalid_loglevel_value']
-        self.env['require'] = '__file_noop/etc/*'
-        emu = emulator.Emulator(argv, env=self.env)
-        emu_loglevel = emu.log.getEffectiveLevel()
-        self.assertEqual(emu_loglevel, logging.WARNING)
-        # lowercase is invalid
-        self.env['__cdist_log_level'] = 'debug'
-        emu = emulator.Emulator(argv, env=self.env)
-        emu_loglevel = emu.log.getEffectiveLevel()
-        self.assertEqual(emu_loglevel, logging.WARNING)
-        del self.env['__cdist_log_level']
 
     def test_requirement_via_order_dependency(self):
         self.env['CDIST_ORDER_DEPENDENCY'] = 'on'

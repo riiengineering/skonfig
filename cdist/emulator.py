@@ -29,7 +29,8 @@ import sys
 import cdist
 import cdist.core
 import cdist.flock
-import cdist.log
+
+import skonfig.logging
 
 
 # FileNotFoundError is added in 3.3.
@@ -74,14 +75,13 @@ class Emulator:
             self.target_host = (
                 self.env['__target_host'],
                 self.env['__target_hostname'],
-                self.env['__target_fqdn']
-            )
+                self.env['__target_fqdn'],
+                )
 
             # Internal variables
             self.object_source = self.env['__cdist_manifest']
             self.type_base_path = self.env['__cdist_type_base_path']
             self.object_marker = self.env['__cdist_object_marker']
-
         except KeyError as e:
             raise MissingRequiredEnvironmentVariableError(e.args[0])
 
@@ -97,7 +97,7 @@ class Emulator:
         self.cdist_type = cdist.core.CdistType(
             self.type_base_path, self.type_name)
 
-        self.__init_log()
+        self.log = skonfig.logging.get_logger(self.target_host[0])
 
     def run(self):
         """Emulate type commands (i.e. __file and co)"""
@@ -114,29 +114,6 @@ class Emulator:
             self.record_parent_child_relationships()
             self.log.trace("Finished %s %s", self.cdist_object.path,
                            self.parameters)
-
-    def __init_log(self):
-        """Setup logging facility"""
-
-        if '__cdist_log_level' in self.env:
-            try:
-                loglevel = self.env['__cdist_log_level']
-                level = int(loglevel)
-            except ValueError:
-                level = cdist.log.WARNING
-        else:
-            level = cdist.log.WARNING
-        self.log = cdist.log.getLogger(self.target_host[0])
-        try:
-            cdist.log.root.setLevel(level)
-            self.log.setLevel(level)
-        except (ValueError, TypeError):
-            # if invalid __cdist_log_level value
-            cdist.log.root.setLevel(cdist.log.WARNING)
-            self.log.setLevel(cdist.log.WARNING)
-
-        colored_log = self.env.get('__cdist_colored_log', 'false')
-        cdist.log.CdistFormatter.USE_COLORS = colored_log == 'true'
 
     def commandline(self):
         """Parse command line"""

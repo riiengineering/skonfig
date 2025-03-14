@@ -1,11 +1,10 @@
 import argparse
-import logging
 
-
-_logger = logging.getLogger(__name__)
+import skonfig.logging
 
 
 def verbosity_to_logging_level(verbosity):
+    import logging
     levels_pre_py34 = getattr(logging, "_levelNames", {})
     levels_available = getattr(logging, "_levelToName", levels_pre_py34)
     levels_used = list(reversed(sorted([
@@ -59,6 +58,4 @@ def get():
     )
     parser.add_argument("host", nargs='?', help="host to configure")
     arguments = parser.parse_args()
-    for argument, value in vars(arguments).items():
-        _logger.debug("%s: %s", argument, value)
     return (parser, arguments)

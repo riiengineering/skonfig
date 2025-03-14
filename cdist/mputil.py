@@ -25,12 +25,11 @@ import multiprocessing
 import os
 import signal
 
-import cdist.log
-
-log = cdist.log.getLogger("cdist-mputil")
+import skonfig.logging
 
 
 def mp_sig_handler(signum, frame):
+    log = skonfig.logging.get_logger(__name__)
     log.trace("signal %s, SIGKILL whole process group", signum)
     os.killpg(os.getpgrp(), signal.SIGKILL)
 

@@ -24,7 +24,7 @@ import os
 
 import cdist
 import cdist.core
-import cdist.log
+import skonfig.logging
 
 
 # FileNotFoundError is added in 3.3.
@@ -53,7 +53,7 @@ class CdistType:
 
     """
 
-    log = cdist.log.getLogger("cdist-type")
+    log = skonfig.logging.get_logger(__name__)
 
     def __init__(self, base_path, name):
         self.base_path = base_path
@@ -66,7 +66,6 @@ class CdistType:
         self.explorer_path = os.path.join(self.name, "explorer")
         self.gencode_local_path = os.path.join(self.name, "gencode-local")
         self.gencode_remote_path = os.path.join(self.name, "gencode-remote")
-        self.manifest_path = os.path.join(self.name, "manifest")
 
         self.__explorers = None
         self.__required_parameters = None

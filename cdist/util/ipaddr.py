@@ -17,11 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with cdist. If not, see <http://www.gnu.org/licenses/>.
 #
-#
 
 import socket
-
-import cdist.log
 
 
 def resolve_target_addresses(host):
@@ -31,7 +28,6 @@ def resolve_target_addresses(host):
 
 
 def resolve_target_host_name(host):
-    log = cdist.log.getLogger(host)
     try:
         # getaddrinfo returns a list of 5-tuples:
         # (family, type, proto, canonname, sockaddr)
@@ -43,7 +39,6 @@ def resolve_target_host_name(host):
         # gethostbyaddr returns triple
         # (hostname, aliaslist, ipaddrlist)
         host_name = socket.gethostbyaddr(ip_addr)[0]
-        log.debug("derived host_name for host \"%s\": %s", host, host_name)
     except (socket.gaierror, socket.herror) as e:
         # in case of error provide empty value
         host_name = ''
@@ -51,10 +46,8 @@ def resolve_target_host_name(host):
 
 
 def resolve_target_fqdn(host):
-    log = cdist.log.getLogger(host)
     try:
         host_fqdn = socket.getfqdn(host)
-        log.debug("derived host_fqdn for host \"%s\": %s", host, host_fqdn)
     except socket.herror as e:
         # in case of error provide empty value
         host_fqdn = ''
