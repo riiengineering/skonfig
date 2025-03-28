@@ -138,21 +138,6 @@ class RemoteTestCase(test.SkonfigTestCase):
         # test if the payload file is in the target directory
         self.assertTrue(os.path.isfile(os.path.join(target, source_file_name)))
 
-    def test_transfer_dir_parallel(self):
-        source = self.mkdtemp(dir=self.temp_dir)
-        # put 8 files in the directory as payload
-        filenames = []
-        for x in range(8):
-            (handle, source_file) = self.mkstemp(dir=source)
-            os.close(handle)
-            source_file_name = os.path.split(source_file)[-1]
-            filenames.append(source_file_name)
-        target = self.mkdtemp(dir=self.temp_dir)
-        self.remote.transfer(source, target, 4)
-        # test if the payload files are in the target directory
-        for filename in filenames:
-            self.assertTrue(os.path.isfile(os.path.join(target, filename)))
-
     def test_create_files_dirs(self):
         self.remote.create_files_dirs()
         self.assertTrue(os.path.isdir(self.remote.base_path))

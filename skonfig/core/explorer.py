@@ -164,7 +164,7 @@ class Explorer:
         if os.path.isdir(self.local.global_explorer_path):
             self.remote.transfer(self.local.global_explorer_path,
                                  self.remote.global_explorer_path,
-                                 self.jobs, umask=0o077)
+                                 umask=0o077)
 
     def run_global_explorer(self, explorer):
         """Run the given global explorer and return it's output."""

@@ -156,7 +156,7 @@ class Remote:
         with open(source, "r") as f:
             self._run_command(command, stdin=f)
 
-    def transfer(self, source, destination, jobs=None, umask=None):
+    def transfer(self, source, destination, umask=None):
         """Transfer a file or directory to the target."""
         self.log.trace("Remote transfer: %s -> %s", source, destination)
         # self.rmdir(destination)
@@ -200,8 +200,6 @@ class Remote:
                     used_archiving = True
             if not used_archiving:
                 self._transfer_dir(source, destination, umask=umask)
-        elif jobs:
-            raise skonfig.Error("Source %s is not a directory" % (source))
         else:
             self._transfer_file(source, destination, umask=umask)
 
