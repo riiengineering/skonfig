@@ -21,8 +21,14 @@
 
 import glob
 import os
+import re
 import tarfile
 import tempfile
+import time
+
+
+class ArchivingNotEnoughFilesError(RuntimeError):
+    pass
 
 
 class ArchivingMode:
@@ -99,27 +105,45 @@ def mode_from_str(s):
     return mode
 
 
-# Archiving will be enabled if directory contains more than FILES_LIMIT files.
-FILES_LIMIT = 1
+# Archiving will be enabled if directory contains >= FILES_LIMIT files.
+FILES_LIMIT = 2
 
 
-def tar(source, mode=TGZ):
-    files = glob.glob1(source, '*')
-    fcnt = len(files)
-    if fcnt <= FILES_LIMIT:
-        return (None, fcnt)
+def tar(source, dest=None, mode=TGZ):
+    fcnt = len(os.listdir(source)) if os.path.isdir(source) else 1
+    if fcnt < FILES_LIMIT:
+        raise ArchivingNotEnoughFilesError(
+            "file count %u is lower than %d limit" % (fcnt, FILES_LIMIT))
 
-    tarmode = "w:%s" % (mode.tarmode)
-    (_, tarpath) = tempfile.mkstemp(suffix=mode.file_ext)
+    tarmode = "w|%s" % (mode.tarmode)
+
+    (tarpath, tarfh) = (None, None)
+    if isinstance(dest, str):
+        tarpath = dest
+    elif dest is not None:
+        tarfh = dest
+    else:
+        # write to temporary file
+        (tarfh, tarpath) = tempfile.mkstemp(suffix=mode.file_ext)
+
+    time_now = time.time()
+
+    def tar_filter(tarinfo):
+        tarinfo.uid = 0
+        tarinfo.uname = ""
+        tarinfo.gid = 0
+        tarinfo.gname = ""
+        tarinfo.mtime = time_now
+        return tarinfo
+
     with tarfile.open(
         tarpath,
         tarmode,
+        fileobj=tarfh,
         dereference=True,
         format=tarfile.USTAR_FORMAT
     ) as tar:
-        if os.path.isdir(source):
-            for f in files:
-                tar.add(os.path.join(source, f), arcname=f)
-        else:
-            tar.add(source)
-    return (tarpath, fcnt)
+        for f in sorted(os.listdir(source)):
+            tar.add(os.path.join(source, f), arcname=f, recursive=True, filter=tar_filter)
+
+    return (tarfh, tarpath)

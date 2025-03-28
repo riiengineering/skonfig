@@ -21,12 +21,15 @@
 #
 
 import glob
+import io
 import os
 import stat
 import subprocess
 
 import skonfig
 import skonfig.logging
+
+from contextlib import contextmanager
 
 from skonfig.exec import util
 from skonfig.util import (ipaddr, shquot)
@@ -132,18 +135,27 @@ class Remote:
 
         self.run(cmd)
 
-    def extract_archive(self, path, mode):
-        """Extract archive path on the target."""
-        self.log.trace("Remote extract archive: %s", path)
+    def tar_pipe_receiver(self, destination, tarmode):
+        """Start a Tar extract command on the remote and read data from the
+        process' standard input.
+        """
+        self.log.trace("Remote extract archive to: %s", destination)
+
         opts = "x"
-        if mode is not None:
-            opts += mode.extract_opts
-        # for maximum compatibility, the filename must immediately follow f
-        command = "cd {} && tar {}f {}".format(
-            shquot.quote(os.path.dirname(path)),
-            opts,
-            shquot.quote("./" + os.path.basename(path)))
-        self.run(command)
+        if tarmode is not None:
+            opts += tarmode.extract_opts
+        remote_command = "cd %s && tar %s" % (shquot.quote(destination), opts)
+
+        return self._start_process(remote_command, stdin=subprocess.PIPE)
+
+    def transfer(self, source, destination, umask=None):
+        """Transfer a file or directory to the target."""
+        self.log.trace("Remote transfer: %s -> %s", source, destination)
+
+        if os.path.isdir(source):
+            self._transfer_dir(source, destination, umask=umask)
+        else:
+            self._transfer_file(source, destination, umask=umask)
 
     def _transfer_file(self, source, destination, umask=None):
         remote_cmd = "cat >%s" % (shquot.quote(destination))
@@ -152,64 +164,44 @@ class Remote:
             remote_cmd = "umask %04o; %s && chmod %o %s" % (
                 umask, remote_cmd, mode, shquot.quote(destination))
 
-        command = self._exec + [self.target_host[0], remote_cmd]
         with open(source, "r") as f:
-            self._run_command(command, stdin=f)
-
-    def transfer(self, source, destination, umask=None):
-        """Transfer a file or directory to the target."""
-        self.log.trace("Remote transfer: %s -> %s", source, destination)
-        # self.rmdir(destination)
-        if os.path.isdir(source):
-            self.mkdir(destination, umask=umask)
-            used_archiving = False
-            if self.archiving_mode is not None:
-                import skonfig.autil
-
-                self.log.trace("Remote transfer in archiving mode")
-
-                # create archive
-                (tarpath, fcnt) = skonfig.autil.tar(
-                    source, self.archiving_mode)
-                if tarpath is None:
-                    self.log.trace("Files count %d is lower than %d limit, "
-                                   "skipping archiving",
-                                   fcnt, skonfig.autil.FILES_LIMIT)
-                else:
-                    self.log.trace("Archiving mode, tarpath: %s, file count: "
-                                   "%s", tarpath, fcnt)
-                    # get archive name
-                    tarname = os.path.basename(tarpath)
-                    self.log.trace("Archiving mode tarname: %s", tarname)
-                    # archive path at the remote
-                    desttarpath = os.path.join(destination, tarname)
-                    self.log.trace("Archiving mode desttarpath: %s",
-                                   desttarpath)
-                    # transfer archive to the target
-                    self.log.trace("Archiving mode: transferring")
-                    self._transfer_file(tarpath, desttarpath)
-                    # extract archive on the target
-                    self.log.trace("Archiving mode: extracting")
-                    self.extract_archive(desttarpath, self.archiving_mode)
-                    # remove remote archive
-                    self.log.trace("Archiving mode: removing remote archive")
-                    self.rmfile(desttarpath)
-                    # remove local archive
-                    self.log.trace("Archiving mode: removing local archive")
-                    os.remove(tarpath)
-                    used_archiving = True
-            if not used_archiving:
-                self._transfer_dir(source, destination, umask=umask)
-        else:
-            self._transfer_file(source, destination, umask=umask)
+            self.run(remote_cmd, stdin=f)
 
     def _transfer_dir(self, source, destination, umask=None):
+        archiving_mode = self.settings.archiving_mode
+
+        if archiving_mode is None:
+            # transfer directory one by one
+            return self._transfer_dir_onebyone(
+                source, destination, umask=umask)
+
+        self.log.trace("Remote transfer in archiving mode")
+        import skonfig.autil as autil
+
+        try:
+            # create destination directory on remote
+            self.mkdir(destination, umask=umask)
+
+            with self.tar_pipe_receiver(destination, archiving_mode) as tar_rx:
+                autil.tar(source, dest=tar_rx.stdin, mode=archiving_mode)
+        except autil.ArchivingNotEnoughFilesError as e:
+            # archiving failed:
+            # fall back to transfer directory one by one
+            self.log.trace("Archiving failed: %s", e)
+            return self._transfer_dir_onebyone(
+                source, destination, umask=umask)
+
+    def _transfer_dir_onebyone(self, source, destination, umask=None):
+        # XXX: hmm, what if already created then tar pipe failed?
+        self.mkdir(destination, umask=umask)
+
+        # implement file filter just like for tar
+
         for path in glob.glob1(source, "*"):
             src_path = os.path.join(source, path)
             dst_path = os.path.join(destination, path)
             if os.path.isdir(src_path):
-                self.mkdir(dst_path, umask=umask)
-                self._transfer_dir(src_path, dst_path, umask=umask)
+                self._transfer_dir_onebyone(src_path, dst_path, umask=umask)
             else:
                 self._transfer_file(src_path, dst_path, umask=umask)
 
@@ -219,12 +211,7 @@ class Remote:
         Return the output as a string.
         """
 
-        command = [
-            "exec",
-            self.settings.remote_shell,
-            "-e",
-            script
-        ]
+        command = ["exec", self.settings.remote_shell, "-e", script]
 
         return self.run(command, env=env, return_output=return_output,
                         stdout=stdout, stderr=stderr)
@@ -238,11 +225,6 @@ class Remote:
         If you need some part not to be quoted (e.g. the component is a glob),
         pass command as a str instead.
         """
-        # prefix given command with remote_exec
-        cmd = self._exec + [self.target_host[0]]
-
-        if isinstance(command, (list, tuple)):
-            command = shquot.join(command)
 
         # environment variables can't be passed to the target,
         # so prepend command with variable declarations
@@ -258,76 +240,91 @@ class Remote:
         # shell. Do this only if env is not None. env breaks this.
         # Explicitly use /bin/sh, because var assignments assume POSIX
         # shell already.
-        # This leaves the posibility to write script that needs to be run
+        # This leaves the possibility to write script that needs to be run
         # remotely in e.g. csh and setting up SKONFIG_REMOTE_SHELL to e.g.
         # /bin/csh will execute this script in the right way.
         if env:
+            if isinstance(command, (list, tuple)):
+                command = shquot.join(command)
+
             remote_env = "export %s; " % (" ".join(
                 "%s=%s" % (
                     name, shquot.quote(value) if value else "")
                 for (name, value) in env.items()))
-            cmd.append("/bin/sh -c " + shquot.quote(remote_env + command))
-        else:
-            cmd.append(command)
-        return self._run_command(cmd, env=env, return_output=return_output,
+            command = ["/bin/sh", "-c", remote_env + command]
+
+        return self._run_command(command, env=env, return_output=return_output,
                                  stdin=stdin, stdout=stdout, stderr=stderr)
 
-    def _run_command(self, command, env=None, return_output=False,
+    def _run_command(self, argv, env=None, return_output=False,
                      stdin=None, stdout=None, stderr=None):
-        """Run the given command with the given environment.
-        Return the output as a string.
-        """
-        assert isinstance(command, (list, tuple)), (
-                "list or tuple argument expected, got: {}".format(command))
+        if return_output:
+            if stdout is not None:
+                raise skonfig.Error(
+                    "cannot use return_output and stdout together")
+            stdout = subprocess.PIPE
 
-        close_stdout_afterwards = False
-        close_stderr_afterwards = False
+        with self._start_process(
+                argv=argv, extra_env=env,
+                stdin=stdin, stdout=stdout, stderr=stderr) as proc:
+            try:
+                if return_output:
+                    stdout = io.BytesIO()
+                    stdout.write(proc.stdout.read())
+                exit_status = proc.wait()
+            except:
+                proc.kill()
+                # don’t call proc.wait() again as proc.__exit__ does it
+                raise
 
-        if not return_output and stdout is None:
-            stdout = util.get_std_fd(self.stdout_base_path, 'remote')
-            close_stdout_afterwards = True
+        if exit_status:
+            raise skonfig.Error(shquot.join(argv))
+        if return_output:
+            return stdout.getvalue().decode()
+
+    @contextmanager
+    def _start_process(self, argv, extra_env={}, stdin=None, stdout=None, stderr=None):
+        if isinstance(argv, (list, tuple)):
+            remote_cmd_string = shquot.join(argv)
+        else:
+            remote_cmd_string = argv
+
+        close_afterwards = []
+        if stdout is None:
+            stdout = util.get_std_fd(self.stdout_base_path, "remote")
+            close_afterwards.append(stdout)
         if stderr is None:
-            stderr = util.get_std_fd(self.stderr_base_path, 'remote')
-            close_stderr_afterwards = True
+            stderr = util.get_std_fd(self.stderr_base_path, "remote")
+            close_afterwards.append(stderr)
 
-        # export target_host, target_hostname, target_fqdn
-        # for use in __remote_{exec,copy} scripts
-        os_environ = os.environ.copy()
-        os_environ['__target_host'] = self.target_host[0]
-        os_environ['__target_hostname'] = self.target_host[1]
-        os_environ['__target_fqdn'] = self.target_host[2]
+        # prepare environment
+        env = os.environ.copy()
+        if extra_env:
+            env.update(extra_env)
+        # export __target_host, __target_hostname, __target_fqdn
+        # for use in __remote_exec scripts
+        env.update(zip(
+            ("__target_host", "__target_hostname", "__target_fqdn"),
+            self.target_host))
 
-        self.log.trace("Remote run: %s", shquot.join(command))
         try:
-            if return_output:
-                output = subprocess.check_output(
-                     command, env=os_environ,
-                     stderr=stderr, stdin=stdin).decode()
-            else:
-                subprocess.check_call(command, env=os_environ, stdin=stdin,
-                                      stdout=stdout, stderr=stderr)
-                output = None
+            self.log.trace("Remote run: %s", remote_cmd_string)
 
-            util.log_std_fd(self.log, command, stderr, 'Remote stderr')
-            util.log_std_fd(self.log, command, stdout, 'Remote stdout')
+            proc = subprocess.Popen(
+                (self._exec + [self.target_host[0], remote_cmd_string]),
+                env=env, shell=False,
+                stdin=stdin, stdout=stdout, stderr=stderr)
+            yield proc
 
-            return output
-        except (OSError, subprocess.CalledProcessError) as error:
-            emsg = ""
-            if not isinstance(command, (str, bytes)):
-                emsg += shquot.join(command)
-            else:
-                emsg += command
-            if error.args:
-                emsg += ": " + str(error.args[1])
-            raise skonfig.Error(emsg)
+            if proc.stdout and proc.stdout.seekable():
+                util.log_std_fd(self.log, argv, proc.stdout, "Remote stdout")
+            if proc.stderr and proc.stderr.seekable():
+                util.log_std_fd(self.log, argv, proc.stderr, "Remote stderr")
         except UnicodeDecodeError:
-            raise DecodeError(command)
+            raise DecodeError(argv)
         finally:
-            if close_stdout_afterwards:
-                stdout.close()
-            if close_stderr_afterwards:
-                if isinstance(stderr, int):
-                    os.close(stderr)
+            for fd in close_afterwards:
+                if isinstance(fd, int):
+                    os.close(fd)
                 else:
-                    stderr.close()
+                    fd.close()
