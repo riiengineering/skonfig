@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# 2022 Dennis Camera (dennis.camera at riiengineering.ch)
+# 2022,2026 Dennis Camera (dennis.camera at riiengineering.ch)
 # 2022-2023 Ander Punnar (ander at kvlt.ee)
 #
 # This file is part of skonfig.
@@ -35,6 +35,20 @@ def __silent_check_output(cmd, cwd):
         os.close(devnull)
 
 
+def __silent_check_status(cmd, cwd):
+    import os
+    import subprocess
+
+    try:
+        # NOTE: subprocess.DEVNULL was added with Python 3.3
+        devnull = os.open(os.devnull, os.O_RDONLY)
+        return subprocess.run(
+            cmd, cwd=cwd, stdin=devnull, stdout=devnull, stderr=devnull,
+            shell=False, check=False).returncode
+    finally:
+        os.close(devnull)
+
+
 def __guess_git_version():
     import os
 
@@ -43,35 +57,24 @@ def __guess_git_version():
     # If .git exists (could be a directory or a file in case of a submodule) it
     # could be a Git repo, so try to generate version number from Git metadata.
     if os.path.exists(os.path.join(project_dir, ".git")):
-        import re
-
         # Try to use Git to generate the version
         try:
-            git_match = re.match(
-                r"^(.*?)(?:-([0-9]+)-g([0-9a-f]{7}))?(-dirty)?$",
-                __silent_check_output(
-                    ["git", "describe", "--tags", "--dirty",
-                     "--abbrev=7", "--match=[0-9]*"], project_dir))
+            tag = __silent_check_output(
+                ["git", "tag", "--points-at", "HEAD"],
+                project_dir)
 
-            version = git_match.group(1)
+            if tag:
+                version = tag
+            else:
+                commit_date = __silent_check_output(
+                    ["git", "show", "-s", "--pretty=format:%cs", "HEAD"],
+                    project_dir)
+                version = "%s.dev%u" % (commit_date.replace("-", ""), 0)
 
-            if any(git_match.group(3, 4)):
-                # NOTE: this complex logic is to always produce
-                #       a "+commit[.dirty]" suffix if HEAD is either not a
-                #       tag/release or dirty.
-                version += "+"
-
-                # get commit id
-                if git_match.group(3):
-                    version += git_match.group(3)
-                else:
-                    # git didn't produce a commit id, probably because it is a
-                    # tag with dirty changes.
-                    version += __silent_check_output(
-                        ["git", "rev-parse", "--short=7", "HEAD"], project_dir)
-
-                if git_match.group(4):
-                    version += "." + git_match.group(4)[1:]
+            if 0 != __silent_check_status(
+                    ["git", "diff-index", "--quiet", "HEAD", "--"],
+                    project_dir):
+                version += "+dirty"
 
             return version
         except Exception:
